@@ -236,6 +236,8 @@ export function RestaurantPage() {
       restaurant={restaurant}
       menu={menu}
       canOrder={canOrder}
+      isOrdersDisabled={isOrdersDisabled}
+      isTimeClosed={isTimeClosed}
       cart={cart}
       cartOpen={cartOpen}
       setCartOpen={setCartOpen}
@@ -342,11 +344,15 @@ function RestaurantWithMenu({
   updateCart, 
   getCartTotal, 
   getCartItemCount,
-  userReview
+  userReview,
+  isOrdersDisabled,
+  isTimeClosed
 }: {
   restaurant: RestaurantWithMenu;
   menu: any;
   canOrder: boolean;
+  isOrdersDisabled: boolean;
+  isTimeClosed: boolean;
   cart: { [itemId: string]: number };
   cartOpen: boolean;
   setCartOpen: (open: boolean) => void;
@@ -360,13 +366,6 @@ function RestaurantWithMenu({
   const [showCheckout, setShowCheckout] = useState(false);
   const [showAddReview, setShowAddReview] = useState(false);
   const { isAuthenticated } = useAuthContext();
-  const isOrdersDisabled = restaurant.orders_enabled === false;
-  // compute time-based closing locally for banner logic
-  const now = new Date();
-  const cutoff = new Date();
-  const [hh, mm] = restaurant.cutoff_time.split(':');
-  cutoff.setHours(parseInt(hh), parseInt(mm), 0, 0);
-  const isTimeClosed = now >= cutoff;
 
   const renderStars = (rating: number) => {
     return (
