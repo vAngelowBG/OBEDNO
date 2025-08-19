@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Auth UI Customization */
+.auth-container {
+  @apply w-full;
+}
+
+.auth-button {
+  @apply w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+}
+
+.auth-input {
+  @apply w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-red-500 focus:border-red-500;
+}

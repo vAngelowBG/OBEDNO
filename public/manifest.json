@@ -1,0 +1,26 @@
+{
+  "name": "OBEDNO - България Обедни Менюта",
+  "short_name": "OBEDNO",
+  "description": "Платформата за обедни менюта в България",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#DC2626",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle"],
+  "lang": "bg",
+  "orientation": "portrait-primary"
+}
