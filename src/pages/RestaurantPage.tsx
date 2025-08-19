@@ -253,6 +253,7 @@ export function RestaurantPage() {
 // Component for restaurant without menu
 function RestaurantInfoOnly({ restaurant }: { restaurant: Tables<'restaurants'> | null }) {
   if (!restaurant) return null;
+  const isOrdersDisabled = (restaurant as any).orders_enabled === false;
 
   return (
     <div className="min-h-screen bg-gray-50">
