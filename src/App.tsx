@@ -13,6 +13,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { PricingPage } from './pages/PricingPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { OrdersPage } from './pages/OrdersPage';
+import { OrderDetailsPage } from './pages/OrderDetailsPage';
 import { MyRestaurantsPage } from './pages/MyRestaurantsPage';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
                     <Route path="/admin" element={<AdminDashboard />} />
                     <Route path="/pricing" element={<PricingPage />} />
                     <Route path="/orders" element={<OrdersPage />} />
+                    <Route path="/restaurant/orders/:id" element={<OrderDetailsPage />} />
                     <Route path="/my-restaurants" element={<MyRestaurantsPage />} />
                   </Routes>
                 </Layout>

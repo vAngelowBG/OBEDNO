@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Clock, CheckCircle, XCircle, Phone, MapPin, Lock } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Lock, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Tables } from '../lib/supabase';
 import { useAuthContext } from '../contexts/AuthContext';
-import { format } from 'date-fns';
-import { bg } from 'date-fns/locale';
-import toast from 'react-hot-toast';
-import { audioService } from '../services/audioService';
+import { OrdersTable, OrderListItem } from './orders/OrdersTable';
+import { Pagination } from './orders/Pagination';
+import { OrderDetailsPage } from '../pages/OrderDetailsPage';
+import jsPDF from 'jspdf';
 
-type OrderWithItems = Tables<'orders'> & {
-  order_items: Tables<'order_items'>[];
-};
+type StatusFilter = 'all' | 'processing' | 'delivered' | 'cancelled';
 
 export function OrdersManager() {
   const { profile } = useAuthContext();
   const [restaurant, setRestaurant] = useState<Tables<'restaurants'> | null>(null);
-  const [orders, setOrders] = useState<OrderWithItems[]>([]);
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivering' | 'delivered'>('all');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const [subscription, setSubscription] = useState<any>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRestaurant();
@@ -28,7 +31,7 @@ export function OrdersManager() {
   useEffect(() => {
     if (!restaurant) return;
     fetchOrders();
-  }, [restaurant]);
+  }, [restaurant, status, page, query, pageSize]);
 
   const fetchSubscription = async () => {
     try {
@@ -36,139 +39,113 @@ export function OrdersManager() {
         .from('stripe_user_subscriptions')
         .select('*')
         .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching subscription:', error);
-        return;
-      }
-
-      setSubscription(data);
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-    }
+      if (!error) setSubscription(data);
+    } catch {}
   };
 
   const fetchRestaurant = async () => {
     if (!profile) return;
-
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('restaurants')
         .select('*')
         .eq('owner_id', profile.id)
         .maybeSingle();
-
-      if (error) throw error;
       setRestaurant(data);
-    } catch (error) {
-      console.error('Error fetching restaurant:', error);
-    }
+    } catch {}
   };
+
+  const statusIn = useMemo(() => {
+    switch (status) {
+      case 'processing':
+        return ['pending', 'confirmed', 'preparing', 'ready', 'delivering'];
+      case 'delivered':
+        return ['delivered'];
+      case 'cancelled':
+        return ['cancelled'];
+      default:
+        return ['pending', 'confirmed', 'preparing', 'ready', 'delivering', 'delivered', 'cancelled'];
+    }
+  }, [status]);
 
   const fetchOrders = async () => {
     if (!restaurant) return;
-
     setLoading(true);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
     try {
-      let query = supabase
+      let queryBuilder = supabase
         .from('orders')
-        .select(`
-          *,
-          order_items(*)
-        `)
+        .select('id, created_at, customer_name, customer_phone, address_line, status, total, channel, order_items(qty)', { count: 'exact' })
         .eq('restaurant_id', restaurant.id)
-        .order('created_at', { ascending: false });
+        .in('status', statusIn)
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
+      if (status === 'processing') {
+        const today = new Date().toISOString().slice(0, 10);
+        queryBuilder = queryBuilder.eq('menu_date', today);
       }
 
-      const { data, error } = await query;
+      if (query && query.trim().length > 0) {
+        const q = query.trim();
+        queryBuilder = queryBuilder.or(`customer_name.ilike.%${q}%,customer_phone.ilike.%${q}%,id.ilike.%${q}%`);
+      }
 
+      const { data, error, count } = await queryBuilder;
       if (error) throw error;
-      setOrders(data || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+
+      const mapped: OrderListItem[] = (data || []).map((row: any) => ({
+        id: row.id,
+        created_at: row.created_at,
+        customer_name: row.customer_name,
+        address_line: row.address_line,
+        status: row.status,
+        total: row.total,
+        items_qty: (row.order_items || []).reduce((s: number, i: any) => s + (i.qty || 0), 0),
+      }));
+
+      setOrders(mapped);
+      setTotal(count || 0);
+    } catch (e) {
+      setOrders([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateOrderStatus = async (orderId: string, status: Tables<'orders'>['status']) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      setOrders(prev =>
-        prev.map(order =>
-          order.id === orderId
-            ? { ...order, status }
-            : order
-        )
-      );
-
-      toast.success('Статусът на поръчката е обновен');
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      toast.error('Грешка при обновяването на статуса');
-    }
-  };
-
-  const getStatusColor = (status: Tables<'orders'>['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800';
-      case 'preparing':
-        return 'bg-orange-100 text-orange-800';
-      case 'ready':
-        return 'bg-green-100 text-green-800';
-      case 'delivering':
-        return 'bg-purple-100 text-purple-800';
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: Tables<'orders'>['status']) => {
-    const statusMap = {
-      pending: 'Очаква',
-      confirmed: 'Потвърдена',
-      preparing: 'Приготвя се',
-      ready: 'Готова',
-      delivering: 'Доставя се',
-      delivered: 'Доставена',
-      cancelled: 'Отказана',
-    };
-    return statusMap[status] || status;
-  };
-
-  const getNextStatus = (currentStatus: Tables<'orders'>['status']) => {
-    const statusFlow = {
-      pending: 'confirmed',
-      confirmed: 'preparing',
-      preparing: 'ready',
-      ready: 'delivering',
-      delivering: 'delivered',
-    } as const;
-    
-    return statusFlow[currentStatus as keyof typeof statusFlow];
-  };
-
   const isSubscriptionActive = subscription?.subscription_status === 'active';
 
-  if (loading) {
-    return <div className="animate-pulse">Зареждане...</div>;
-  }
+  const printToday = async () => {
+    if (!restaurant) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from('orders')
+      .select('id, customer_name, order_items(name, qty)')
+      .eq('restaurant_id', restaurant.id)
+      .eq('menu_date', today)
+      .order('created_at', { ascending: true });
+    const doc = new jsPDF();
+    let y = 10;
+    doc.setFontSize(14);
+    doc.text(`Поръчки за днес (${today})`, 10, y);
+    y += 8;
+    (data || []).forEach((o: any, idx: number) => {
+      doc.setFontSize(12);
+      doc.text(`${idx + 1}. #${o.id.slice(-8)} — ${o.customer_name}`, 10, y);
+      y += 6;
+      (o.order_items || []).forEach((it: any) => {
+        doc.setFontSize(10);
+        doc.text(`- ${it.qty} x ${it.name}`, 12, y);
+        y += 5;
+        if (y > 280) { doc.addPage(); y = 10; }
+      });
+      y += 3;
+      if (y > 285) { doc.addPage(); y = 10; }
+    });
+    doc.save('orders-today.pdf');
+  };
 
   if (!restaurant) {
     return (
@@ -182,172 +159,86 @@ export function OrdersManager() {
     return (
       <div className="text-center py-12">
         <Lock size={48} className="mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Абонамент е необходим
-        </h3>
-        <p className="text-gray-600 mb-4">
-          За да управлявате поръчките си, трябва да имате активен абонамент.
-        </p>
-        <p className="text-sm text-gray-500">
-          Отидете в раздел "Настройки" за да се абонирате.
-        </p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Абонамент е необходим</h3>
+        <p className="text-gray-600">За да управлявате поръчките си, трябва да имате активен абонамент.</p>
       </div>
     );
   }
 
-  const statusFilters = [
-    { key: 'all', label: 'Всички', count: orders.length },
-    { key: 'pending', label: 'Очакващи', count: orders.filter(o => o.status === 'pending').length },
-    { key: 'confirmed', label: 'Потвърдени', count: orders.filter(o => o.status === 'confirmed').length },
-    { key: 'preparing', label: 'Приготвят се', count: orders.filter(o => o.status === 'preparing').length },
-    { key: 'ready', label: 'Готови', count: orders.filter(o => o.status === 'ready').length },
-  ];
-
   return (
-    <div className="space-y-6">
-      {/* Filter Tabs */}
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-        {statusFilters.map((filterItem) => (
-          <button
-            key={filterItem.key}
-            onClick={() => setFilter(filterItem.key as any)}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === filterItem.key
-                ? 'bg-white text-red-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {filterItem.label}
-            {filterItem.count > 0 && (
-              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                filter === filterItem.key
-                  ? 'bg-red-100 text-red-600'
-                  : 'bg-gray-200 text-gray-600'
-              }`}>
-                {filterItem.count}
-              </span>
-            )}
-          </button>
-        ))}
+    <div className="space-y-4">
+      {selectedId ? (
+        <div className="bg-white border rounded-lg p-4">
+          <button className="text-gray-600 hover:text-gray-800 text-sm mb-3" onClick={() => setSelectedId(null)}>← Назад към поръчки</button>
+          {/* Reuse details page in-tab via route component approach is complex; we render it directly by navigating to URL. */}
+          <OrderDetailsPage orderId={selectedId!} />
+        </div>
+      ) : (
+      <>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center space-x-2 bg-white rounded-lg border px-3 py-2 w-full max-w-sm">
+          <Search size={16} className="text-gray-400" />
+          <input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+            placeholder="Търси по ID / име / телефон"
+            className="w-full text-sm outline-none"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          {[
+            { key: 'all', label: 'Всички' },
+            { key: 'processing', label: 'Поръчки за днес' },
+            { key: 'cancelled', label: 'Отказани' },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => { setStatus(f.key as StatusFilter); setPage(1); }}
+              className={`px-3 py-1.5 rounded text-sm border ${status === f.key ? 'bg-red-600 text-white border-red-600' : 'bg-white hover:bg-gray-50'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+          <button onClick={printToday} className="px-3 py-1.5 rounded text-sm border bg-white hover:bg-gray-50">Принтирай поръчки за днес</button>
+        </div>
       </div>
 
-      {/* Orders List */}
-      <div className="space-y-4">
-        {orders.length === 0 ? (
-          <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-            <Package size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600">
-              {filter === 'all' ? 'Няма поръчки' : `Няма поръчки със статус "${getStatusText(filter as any)}"`}
-            </p>
-          </div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">Показани:</div>
+        <select
+          className="text-sm border rounded px-2 py-1"
+          value={pageSize}
+          onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+        >
+          {[10, 50, 100].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="min-h-[320px]">
+        {loading ? (
+          <div className="p-6 bg-white border rounded-lg animate-pulse">Зареждане...</div>
+        ) : orders.length === 0 ? (
+          <div className="p-10 text-center text-gray-600 bg-white border rounded-lg">Няма поръчки</div>
         ) : (
-          orders.map((order) => (
-            <div key={order.id} className="bg-white border rounded-lg p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="font-semibold text-gray-900">
-                      Поръчка #{order.id.slice(-8)}
-                    </h3>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {getStatusText(order.status)}
-                    </span>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600">
-                    {format(new Date(order.created_at), 'dd MMM yyyy, HH:mm', { locale: bg })}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {order.total.toFixed(2)} лв
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {order.payment_method === 'cash' ? 'В брой' : 'С карта'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Customer Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Phone size={16} className="text-gray-400" />
-                  <div>
-                    <p className="font-medium">{order.customer_name}</p>
-                    <p className="text-sm text-gray-600">{order.customer_phone}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <MapPin size={16} className="text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">{order.address_line}</p>
-                    {order.address_extra && (
-                      <p className="text-xs text-gray-500">{order.address_extra}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Order Items */}
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-900 mb-2">Ястия:</h4>
-                <div className="space-y-1">
-                  {order.order_items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span>{item.qty}x {item.name}</span>
-                      <span>{(item.unit_price * item.qty).toFixed(2)} лв</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Special Instructions */}
-              {order.replace_rules && (
-                <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm font-medium text-yellow-800 mb-1">Забележки:</p>
-                  <p className="text-sm text-yellow-700">{order.replace_rules}</p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-between items-center pt-4 border-t">
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <Clock size={16} />
-                  <span>Доставка: {order.delivery_window}</span>
-                </div>
-
-                {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                  <div className="flex space-x-2">
-                    {order.status === 'pending' && (
-                      <button
-                        onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                        className="px-3 py-1 border border-red-300 text-red-700 rounded hover:bg-red-50 transition-colors text-sm"
-                      >
-                        Откажи
-                      </button>
-                    )}
-                    
-                    {getNextStatus(order.status) && (
-                      <button
-                        onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
-                        className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
-                      >
-                        {order.status === 'pending' && 'Потвърди'}
-                        {order.status === 'confirmed' && 'Започни приготвяне'}
-                        {order.status === 'preparing' && 'Готова за доставка'}
-                        {order.status === 'ready' && 'Изпрати за доставка'}
-                        {order.status === 'delivering' && 'Маркирай като доставена'}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
+          <OrdersTable
+            orders={orders}
+            onConfirm={async (id) => { await supabase.from('orders').update({ status: 'confirmed' }).eq('id', id); fetchOrders(); }}
+            onCancel={async (id) => { await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id); fetchOrders(); }}
+            onRowClick={(id) => setSelectedId(id)}
+          />
         )}
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={(p) => setPage(p)}
+      />
+      </>
+      )}
     </div>
   );
 }
