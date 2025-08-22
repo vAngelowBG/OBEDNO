@@ -40,6 +40,7 @@ export interface Database {
           name: string;
           slug: string;
           logo_url: string | null;
+          cover_url: string | null;
           city: string;
           districts: string[];
           address: string;
@@ -64,6 +65,7 @@ export interface Database {
           name: string;
           slug: string;
           logo_url?: string | null;
+          cover_url?: string | null;
           city: string;
           districts?: string[];
           address: string;
@@ -88,6 +90,7 @@ export interface Database {
           name?: string;
           slug?: string;
           logo_url?: string | null;
+          cover_url?: string | null;
           city?: string;
           districts?: string[];
           address?: string;
@@ -152,6 +155,8 @@ export interface Database {
           image_url: string | null;
           category: string;
           stock: number;
+          auto_add: boolean;
+          template_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -164,6 +169,8 @@ export interface Database {
           image_url?: string | null;
           category?: string;
           stock?: number;
+          auto_add?: boolean;
+          template_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +183,8 @@ export interface Database {
           image_url?: string | null;
           category?: string;
           stock?: number;
+          auto_add?: boolean;
+          template_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

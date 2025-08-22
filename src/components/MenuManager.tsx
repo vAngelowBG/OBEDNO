@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Calendar, Save, X, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Calendar, Save, X, Lock, Copy, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Tables } from '../lib/supabase';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -22,6 +22,7 @@ export function MenuManager({ mode }: MenuManagerProps) {
   const [editingItem, setEditingItem] = useState<Tables<'menu_items'> | null>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [autoAddItems, setAutoAddItems] = useState<Tables<'menu_items'>[]>([]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<{
     name: string;
@@ -29,6 +30,7 @@ export function MenuManager({ mode }: MenuManagerProps) {
     price: number;
     category: string;
     stock?: number;
+    auto_add?: boolean;
   }>();
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export function MenuManager({ mode }: MenuManagerProps) {
   useEffect(() => {
     if (restaurant) {
       fetchMenus();
+      fetchAutoAddItems();
     }
   }, [restaurant, selectedDate, mode]);
 
@@ -119,6 +122,99 @@ export function MenuManager({ mode }: MenuManagerProps) {
     }
   };
 
+  const fetchAutoAddItems = async () => {
+    if (!restaurant) return;
+    try {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .eq('auto_add', true)
+        .is('template_id', null);
+      
+      if (error) throw error;
+      setAutoAddItems(data || []);
+    } catch (error) {
+      console.error('Error fetching auto-add items:', error);
+    }
+  };
+
+  const copyYesterdayMenu = async () => {
+    if (!restaurant) return;
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+
+      // Fetch yesterday's menu
+      const { data: yesterdayMenu, error: menuError } = await supabase
+        .from('menus')
+        .select('*, menu_items(*)')
+        .eq('restaurant_id', restaurant.id)
+        .eq('menu_date', yesterdayStr)
+        .single();
+
+      if (menuError) throw menuError;
+      if (!yesterdayMenu?.menu_items?.length) {
+        toast.error('Няма меню за вчера');
+        return;
+      }
+
+      // Create today's menu if it doesn't exist
+      if (!menus[0]) {
+        await createTodayMenu();
+      }
+
+      // Copy items
+      const todayMenu = menus[0];
+      const items = yesterdayMenu.menu_items.map((item: any) => ({
+        menu_id: todayMenu.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        category: item.category,
+        stock: item.stock,
+        template_id: item.template_id || item.id,
+        auto_add: item.auto_add
+      }));
+
+      const { error: insertError } = await supabase
+        .from('menu_items')
+        .insert(items);
+
+      if (insertError) throw insertError;
+
+      toast.success('Менюто от вчера е копирано успешно');
+      fetchMenus();
+    } catch (error) {
+      console.error('Error copying yesterday menu:', error);
+      toast.error('Грешка при копиране на менюто');
+    }
+  };
+
+  const toggleAutoAdd = async (item: Tables<'menu_items'>) => {
+    try {
+      const { error } = await supabase
+        .from('menu_items')
+        .update({ auto_add: !item.auto_add })
+        .eq('id', item.id);
+
+      if (error) throw error;
+
+      if (!item.auto_add) {
+        setAutoAddItems(prev => [...prev, item]);
+      } else {
+        setAutoAddItems(prev => prev.filter(i => i.id !== item.id));
+      }
+
+      toast.success(item.auto_add ? 'Премахнато от автоматични' : 'Добавено към автоматични');
+      fetchMenus();
+    } catch (error) {
+      console.error('Error toggling auto-add:', error);
+      toast.error('Грешка при промяна на автоматично добавяне');
+    }
+  };
+
   const createTodayMenu = async () => {
     if (!restaurant) return;
 
@@ -146,6 +242,22 @@ export function MenuManager({ mode }: MenuManagerProps) {
 
       if (error) throw error;
       
+      // Add auto-add items if any
+      if (autoAddItems.length > 0) {
+        const items = autoAddItems.map(item => ({
+          menu_id: data.id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          category: item.category,
+          stock: item.stock,
+          template_id: item.id,
+          auto_add: true
+        }));
+
+        await supabase.from('menu_items').insert(items);
+      }
+
       setMenus([data]);
       toast.success('Менюто за днес е създадено');
     } catch (error) {
@@ -193,6 +305,7 @@ export function MenuManager({ mode }: MenuManagerProps) {
             price: Number(data.price),
             category: data.category,
             stock: data.stock ? Number(data.stock) : 0,
+            auto_add: data.auto_add || false
           })
           .eq('id', editingItem.id);
 
@@ -209,6 +322,7 @@ export function MenuManager({ mode }: MenuManagerProps) {
             price: Number(data.price),
             category: data.category,
             stock: data.stock ? Number(data.stock) : 0,
+            auto_add: data.auto_add || false
           });
 
         if (error) throw error;
@@ -252,6 +366,7 @@ export function MenuManager({ mode }: MenuManagerProps) {
       price: item.price,
       category: item.category,
       stock: item.stock,
+      auto_add: item.auto_add
     });
     setShowAddItem(true);
   };
@@ -306,12 +421,21 @@ export function MenuManager({ mode }: MenuManagerProps) {
           <p className="text-gray-600 mb-4">
             Създайте меню за днес и добавете ястия
           </p>
-          <button
-            onClick={createTodayMenu}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Създай днешно меню
-          </button>
+          <div className="flex items-center justify-center space-x-3">
+            <button
+              onClick={createTodayMenu}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Създай празно меню
+            </button>
+            <button
+              onClick={copyYesterdayMenu}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+            >
+              <Copy size={16} className="mr-2" />
+              Използвай вчерашното меню
+            </button>
+          </div>
         </div>
       );
     }
@@ -441,6 +565,17 @@ export function MenuManager({ mode }: MenuManagerProps) {
                 />
               </div>
 
+              <div className="col-span-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    {...register('auto_add')}
+                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-sm text-gray-700">Добавяй автоматично всеки ден</span>
+                </label>
+              </div>
+
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
@@ -479,6 +614,11 @@ export function MenuManager({ mode }: MenuManagerProps) {
                     <span className="text-lg font-bold text-red-600">
                       {item.price.toFixed(2)} лв
                     </span>
+                    {item.auto_add && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        Автоматично
+                      </span>
+                    )}
                   </div>
                   
                   {item.description && (
@@ -493,6 +633,13 @@ export function MenuManager({ mode }: MenuManagerProps) {
                 </div>
 
                 <div className="flex items-center space-x-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleAutoAdd(item); }}
+                    className={`p-2 rounded ${item.auto_add ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}`}
+                    title={item.auto_add ? 'Премахни от автоматични' : 'Добавяй автоматично'}
+                  >
+                    <Check size={16} />
+                  </button>
                   <button
                     onClick={() => startEditItem(item)}
                     className="text-gray-600 hover:text-blue-600 p-2 rounded"

@@ -284,34 +284,39 @@ export function ReviewsSection({ restaurantId, restaurantName }: ReviewsSectionP
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 mt-8" data-reviews-section>
+    <div className="bg-white rounded-lg shadow-sm border" data-reviews-section>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Отзиви</h3>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              {renderStars(Math.round(averageRating))}
-              <span className="text-lg font-medium text-gray-900">
-                {averageRating.toFixed(1)}
+      <div className="px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Отзиви</h3>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                {renderStars(Math.round(averageRating))}
+                <span className="text-lg font-medium text-gray-900">
+                  {averageRating.toFixed(1)}
+                </span>
+              </div>
+              <span className="text-gray-600">
+                ({reviewCount} {reviewCount === 1 ? 'отзив' : 'отзива'})
               </span>
             </div>
-            <span className="text-gray-600">
-              ({reviewCount} {reviewCount === 1 ? 'отзив' : 'отзива'})
-            </span>
           </div>
-        </div>
 
-        {isAuthenticated && !userReview && (
-          <button
-            onClick={() => setShowAddReview(true)}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
-          >
-            <Plus size={16} />
-            <span>Добави отзив</span>
-          </button>
-        )}
+          {isAuthenticated && !userReview && (
+            <button
+              onClick={() => setShowAddReview(true)}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+            >
+              <Plus size={16} />
+              <span>Добави отзив</span>
+            </button>
+          )}
+        </div>
       </div>
+      
+      {/* Content */}
+      <div className="p-6">
 
       {/* User's Review */}
       {userReview && (
@@ -508,6 +513,7 @@ export function ReviewsSection({ restaurantId, restaurantName }: ReviewsSectionP
           </a>
         </div>
       )}
+      </div>
     </div>
   );
 }

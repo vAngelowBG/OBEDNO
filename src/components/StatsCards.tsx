@@ -88,9 +88,9 @@ export function StatsCards() {
 
   if (!isSubscriptionActive) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
         {[1, 2, 3, 4].map((index) => (
-          <div key={index} className="bg-white rounded-lg shadow-sm p-6 relative">
+          <div key={index} className="bg-white rounded-lg shadow-sm p-4 sm:p-6 relative">
             <div className="absolute inset-0 bg-gray-100 bg-opacity-75 rounded-lg flex items-center justify-center">
               <Lock size={24} className="text-gray-400" />
             </div>
@@ -141,18 +141,18 @@ export function StatsCards() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (
-          <div key={index} className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center">
-              <div className={`${card.bg} p-3 rounded-lg`}>
-                <Icon className={`h-6 w-6 ${card.color}`} />
+          <div key={index} className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center">
+              <div className={`${card.bg} p-2 sm:p-3 rounded-lg mb-2 sm:mb-0`}>
+                <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${card.color}`} />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{card.title}</p>
-                <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+              <div className="sm:ml-4">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">{card.title}</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">{card.value}</p>
               </div>
             </div>
           </div>

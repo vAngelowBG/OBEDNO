@@ -258,18 +258,32 @@ function RestaurantInfoOnly({ restaurant }: { restaurant: Tables<'restaurants'> 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Restaurant Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative bg-white shadow-sm">
+        {/* Cover Image Background */}
+        {restaurant.cover_url && (
+          <div className="absolute inset-0">
+            <div 
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${restaurant.cover_url})` }}
+            >
+              {/* Black overlay with 60% opacity */}
+              <div className="absolute inset-0 bg-black/60"></div>
+            </div>
+          </div>
+        )}
+        
+        {/* Content Container */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-16">
           <div className="flex flex-col md:flex-row md:items-center md:space-x-6">
             <div className="mb-4 md:mb-0">
               {restaurant.logo_url ? (
                 <img 
                   src={restaurant.logo_url} 
                   alt={restaurant.name}
-                  className="h-24 w-24 object-cover rounded-xl"
+                  className="h-24 w-24 object-cover rounded-xl border-2 border-white/20 shadow-lg"
                 />
               ) : (
-                <div className="h-24 w-24 bg-red-600 rounded-xl flex items-center justify-center">
+                <div className="h-24 w-24 bg-red-600 rounded-xl flex items-center justify-center border-2 border-white/20 shadow-lg">
                   <span className="text-white font-bold text-2xl">
                     {restaurant.name.charAt(0)}
                   </span>
@@ -278,32 +292,17 @@ function RestaurantInfoOnly({ restaurant }: { restaurant: Tables<'restaurants'> 
             </div>
 
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-white mb-2">
                 {restaurant.name}
               </h1>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <MapPin size={16} className="mr-2" />
-                  <span>{restaurant.address}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <Phone size={16} className="mr-2" />
-                  <span>{restaurant.phone}</span>
-                </div>
-                
+               
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-white/90">
                 {!isOrdersDisabled && (
                   <div className="flex items-center">
-                    <Clock size={16} className="mr-2" />
+                    <Clock size={16} className="mr-2 text-white/80" />
                     <span>Поръчки до {restaurant.cutoff_time.slice(0, 5)}</span>
                   </div>
                 )}
-                
-                <div className="flex items-center">
-                  <Mail size={16} className="mr-2" />
-                  <span>{restaurant.email}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -328,6 +327,108 @@ function RestaurantInfoOnly({ restaurant }: { restaurant: Tables<'restaurants'> 
           restaurantId={restaurant.id}
           restaurantName={restaurant.name}
         />
+      </div>
+
+      {/* Restaurant Information Tab */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">Информация за заведението</h2>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              
+              {/* First Column - Restaurant Info */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">За заведението</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {restaurant.name} предлага качествена храна и отлично обслужване. Нашата мисия е да ви предложим незабравимо кулинарно изживяване.
+                </p>
+              </div>
+              
+              {/* Second Column - Address */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Адрес</h3>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">
+                    {restaurant.city && restaurant.address ? 
+                      `${restaurant.city}, ${restaurant.address}` : 
+                      restaurant.address || restaurant.city || 'Адресът не е посочен'
+                    }
+                  </p>
+                  <button 
+                    onClick={() => {
+                      // Combine city and address for Google Maps
+                      const fullAddress = restaurant.city && restaurant.address ? 
+                        `${restaurant.city}, ${restaurant.address}` : 
+                        restaurant.address || restaurant.city || '';
+                      
+                      if (fullAddress) {
+                        const encodedAddress = encodeURIComponent(fullAddress);
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  >
+                    Виж на картата →
+                  </button>
+                </div>
+              </div>
+              
+              {/* Third Column - Working Hours */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Работно време</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Понеделник - Петък:</span>
+                    <span className="text-gray-900 font-medium">09:00 - 17:30</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Събота:</span>
+                    <span className="text-gray-900 font-medium">09:00 - 17:30</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Неделя:</span>
+                    <span className="text-gray-900 font-medium">09:00 - 17:30</span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Поръчки до:</span>
+                      <span className="text-red-600 font-medium">{restaurant.cutoff_time.slice(0, 5)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Fourth Column - Contact Information */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Информация</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <Phone size={16} className="text-gray-500 mr-2" />
+                    <a 
+                      href={`tel:${restaurant.phone}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      {restaurant.phone}
+                    </a>
+                  </div>
+                  <div className="flex items-center">
+                    <Mail size={16} className="text-gray-500 mr-2" />
+                    <a 
+                      href={`mailto:${restaurant.email}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      {restaurant.email}
+                    </a>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -413,8 +514,22 @@ function RestaurantWithMenu({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Restaurant Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative bg-white shadow-sm">
+        {/* Cover Image Background */}
+        {restaurant.cover_url && (
+          <div className="absolute inset-0">
+            <div 
+              className="w-full h-full bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${restaurant.cover_url})` }}
+            >
+              {/* Black overlay with 60% opacity */}
+              <div className="absolute inset-0 bg-black/60"></div>
+            </div>
+          </div>
+        )}
+        
+        {/* Content Container */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-16">
           <div className="flex flex-col md:flex-row md:items-center md:space-x-6">
             {/* Logo */}
             <div className="mb-4 md:mb-0">
@@ -422,10 +537,10 @@ function RestaurantWithMenu({
                 <img 
                   src={restaurant.logo_url} 
                   alt={restaurant.name}
-                  className="h-24 w-24 object-cover rounded-xl"
+                  className="h-24 w-24 object-cover rounded-xl border-2 border-white/20 shadow-lg"
                 />
               ) : (
-                <div className="h-24 w-24 bg-red-600 rounded-xl flex items-center justify-center">
+                <div className="h-24 w-24 bg-red-600 rounded-xl flex items-center justify-center border-2 border-white/20 shadow-lg">
                   <span className="text-white font-bold text-2xl">
                     {restaurant.name.charAt(0)}
                   </span>
@@ -435,29 +550,14 @@ function RestaurantWithMenu({
 
             {/* Restaurant Info */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-white mb-2">
                 {restaurant.name}
               </h1>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+               
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-white/90">
                 <div className="flex items-center">
-                  <MapPin size={16} className="mr-2" />
-                  <span>{restaurant.address}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <Phone size={16} className="mr-2" />
-                  <span>{restaurant.phone}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <Clock size={16} className="mr-2" />
+                  <Clock size={16} className="mr-2 text-white/80" />
                   <span>Поръчки до {restaurant.cutoff_time.slice(0, 5)}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <Mail size={16} className="mr-2" />
-                  <span>{restaurant.email}</span>
                 </div>
               </div>
 
@@ -470,24 +570,8 @@ function RestaurantWithMenu({
                     deliveryType={restaurant.delivery_type || 'fixed'}
                     currentCartTotal={getCartTotal()}
                     compact={true}
+                    darkTheme={true}
                   />
-                </div>
-              )}
-
-              {/* Delivery Zones */}
-              {!isOrdersDisabled && restaurant.districts && restaurant.districts.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm text-gray-500 mb-2">Райони за доставка:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {restaurant.districts.map((district) => (
-                      <span 
-                        key={district}
-                        className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-full"
-                      >
-                        {district}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>
@@ -496,25 +580,25 @@ function RestaurantWithMenu({
             <div className="mt-4 md:mt-0">
               <div className="flex items-center space-x-2 mb-2">
                 {renderStars(Math.round(restaurant.average_rating || 0))}
-                <span className="text-lg font-medium text-gray-900">
+                <span className="text-lg font-medium text-white">
                   {(restaurant.average_rating || 0).toFixed(1)}
                 </span>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-white/80">
                   ({restaurant.review_count || 0} {(restaurant.review_count || 0) === 1 ? 'отзив' : 'отзива'})
                 </span>
               </div>
-              
+               
               {isAuthenticated && (
                 <div>
                   {userReview ? (
-                    <span className="text-sm text-green-600 flex items-center">
+                    <span className="text-sm text-green-300 flex items-center">
                       <MessageCircle size={14} className="mr-1" />
                       Вече сте дали своят отзив
                     </span>
                   ) : (
                     <button
                       onClick={() => setShowAddReview(true)}
-                      className="text-sm text-red-600 hover:text-red-700 flex items-center transition-colors"
+                      className="text-sm text-red-300 hover:text-red-200 flex items-center transition-colors"
                     >
                       <MessageCircle size={14} className="mr-1" />
                       Остави отзив
@@ -773,6 +857,108 @@ function RestaurantWithMenu({
           restaurantId={restaurant.id}
           restaurantName={restaurant.name}
         />
+      </div>
+
+      {/* Restaurant Information Tab */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">Информация за заведението</h2>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              
+              {/* First Column - Restaurant Info */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">За заведението</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {restaurant.name} предлага качествена храна и отлично обслужване. Нашата мисия е да ви предложим незабравимо кулинарно изживяване.
+                </p>
+              </div>
+              
+              {/* Second Column - Address */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Адрес</h3>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">
+                    {restaurant.city && restaurant.address ? 
+                      `${restaurant.city}, ${restaurant.address}` : 
+                      restaurant.address || restaurant.city || 'Адресът не е посочен'
+                    }
+                  </p>
+                  <button 
+                    onClick={() => {
+                      // Combine city and address for Google Maps
+                      const fullAddress = restaurant.city && restaurant.address ? 
+                        `${restaurant.city}, ${restaurant.address}` : 
+                        restaurant.address || restaurant.city || '';
+                      
+                      if (fullAddress) {
+                        const encodedAddress = encodeURIComponent(fullAddress);
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  >
+                    Виж на картата →
+                  </button>
+                </div>
+              </div>
+              
+              {/* Third Column - Working Hours */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Работно време</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Понеделник - Петък:</span>
+                    <span className="text-gray-900 font-medium">09:00 - 17:30</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Събота:</span>
+                    <span className="text-gray-900 font-medium">09:00 - 17:30</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Неделя:</span>
+                    <span className="text-gray-900 font-medium">09:00 - 17:30</span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Поръчки до:</span>
+                      <span className="text-red-600 font-medium">{restaurant.cutoff_time.slice(0, 5)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Fourth Column - Contact Information */}
+              <div className="lg:col-span-1">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Информация</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <Phone size={16} className="text-gray-500 mr-2" />
+                    <a 
+                      href={`tel:${restaurant.phone}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      {restaurant.phone}
+                    </a>
+                  </div>
+                  <div className="flex items-center">
+                    <Mail size={16} className="text-gray-500 mr-2" />
+                    <a 
+                      href={`mailto:${restaurant.email}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      {restaurant.email}
+                    </a>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Direct Checkout Modal */}

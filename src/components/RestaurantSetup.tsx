@@ -22,6 +22,8 @@ interface RestaurantForm {
   delivery_zones: string;
   cutoff_time: string;
   delivery_window: string;
+  logo_url: string | null;
+  cover_url: string | null;
 }
 
 export function RestaurantSetup() {
@@ -181,6 +183,8 @@ export function RestaurantSetup() {
             delivery_zones: data.delivery_zones?.join(', ') || '',
             cutoff_time: data.cutoff_time,
             delivery_window: data.delivery_window,
+            logo_url: data.logo_url,
+            cover_url: data.cover_url,
           });
         }
       }
@@ -204,6 +208,8 @@ export function RestaurantSetup() {
         owner_id: profile.id,
         name: data.name,
         slug,
+        logo_url: data.logo_url,
+        cover_url: data.cover_url,
         address: data.address,
         phone: data.phone,
         email: data.email,
@@ -733,6 +739,127 @@ export function RestaurantSetup() {
               />
             </div>
           )}
+
+          {/* Images Section */}
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+              <Store className="mr-2" size={20} />
+              Изображения
+            </h3>
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg space-x-4">
+              <div className="flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Лого
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <div className="w-24 h-24 border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center bg-white">
+                      {watch('logo_url') ? (
+                        <img 
+                          src={watch('logo_url') || ''} 
+                          alt="Restaurant logo" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Store className="w-8 h-8 text-gray-400" />
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const fileExt = file.name.split('.').pop();
+                            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+                            const filePath = `${restaurant?.id || 'new'}/logo-${fileName}`;
+
+                            try {
+                              const { error: uploadError } = await supabase.storage
+                                .from('obedno-img')
+                                .upload(filePath, file);
+
+                              if (uploadError) throw uploadError;
+
+                              const { data: { publicUrl } } = supabase.storage
+                                .from('obedno-img')
+                                .getPublicUrl(filePath);
+
+                              setValue('logo_url', publicUrl);
+                            } catch (error) {
+                              console.error('Error uploading logo:', error);
+                              toast.error('Грешка при качването на логото');
+                            }
+                          }
+                        }}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        PNG, JPG до 5MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Корица
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <div className="w-48 h-24 border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center bg-white">
+                      {watch('cover_url') ? (
+                        <img 
+                          src={watch('cover_url') || ''} 
+                          alt="Restaurant cover" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Store className="w-8 h-8 text-gray-400" />
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const fileExt = file.name.split('.').pop();
+                            const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+                            const filePath = `${restaurant?.id || 'new'}/cover-${fileName}`;
+
+                            try {
+                              const { error: uploadError } = await supabase.storage
+                                .from('obedno-img')
+                                .upload(filePath, file);
+
+                              if (uploadError) throw uploadError;
+
+                              const { data: { publicUrl } } = supabase.storage
+                                .from('obedno-img')
+                                .getPublicUrl(filePath);
+
+                              setValue('cover_url', publicUrl);
+                            } catch (error) {
+                              console.error('Error uploading cover:', error);
+                              toast.error('Грешка при качването на корицата');
+                            }
+                          }
+                        }}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        PNG, JPG до 5MB. Препоръчителен размер: 1200x600px
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Orders Enabled Toggle */}
           <div className="mt-6">
